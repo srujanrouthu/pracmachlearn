@@ -1,0 +1,112 @@
+---
+title: "Exercise Form"
+author: "Srujan Routhu"
+date: "Sunday, September 21, 2014"
+output: html_document
+---
+
+# Predicting the Form of Exercise
+
+## Synopsis
+
+In this article, we outline the process for predicting the form of the exercise being conducted by a subject based on the data extracted by using various hardware in exercise monitoring devices. After building and cross validating our model, we estimate the out of sample error to be 0.56 %.
+
+More information pertaining to such a format of study can be found [here](http://groupware.les.inf.puc-rio.br/har)
+
+## Data Importing and Processing
+
+The training data used for this writeup was downloaded from [here](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv). After copying the data into our working folder we start the process of estimation.
+
+```{r}
+
+data <- read.csv("pml-training.csv", na.strings = c("NA", ""))
+
+dim(data)
+str(data$classe)
+summary(data$classe)
+
+```
+
+We see that there are 5 different forms of exercise as denoted by the "classe" variable, with factor level A, B, C, D, E.
+
+Next we split the data into two sets, one for training and the other for cross-validation to verify the performance of the model.
+
+```{r}
+
+set.seed(2906)
+library(caret)
+
+inTrain <- createDataPartition(y=data$classe, p=0.7, list=FALSE)
+
+training <- data[inTrain, ]
+valid <- data[-inTrain, ]
+
+```
+
+We have 159 variables available to predict the "classe" variable. We check these variables to see if there are any columns with a very high percentage of NA values, and remove them as their effect cannot be credibly quantified on the "classe" variable.
+
+```{r}
+
+check <- sapply(training, function(x) {sum(is.na(x))})
+summary(check)
+summary(as.factor(check))
+
+```
+
+From the above results it can be seen that 100 columns have an extremely high percentage of NA values. These columns can be ignored for this prediction model.
+
+```{r}
+
+bad <- names(check[check >= 1])
+training <- training[, !names(training) %in% bad]
+
+colnames(training)
+
+```
+
+The first seven variables are time and subject specific, and will not have any useful effect on the prediction model. Hence, these variables can also be removed.
+
+```{r}
+
+training <- training[, 8:60]
+
+```
+
+## Model Development
+
+We will now build a model to predict the "classe" variable using the other variables. We use the random forest method for this prediction model.
+
+The code chuck running the model prediction has been commented out after the model was saved to a file. This was done to avoid to singnificant amount of time the train function took to run.
+
+```{r}
+
+library(caret)
+library(randomForest)
+
+# fit <- train(classe~., method = "rf", data = training)
+# saveRDS(fit, "fit.RDS")
+
+model <- readRDS("fit.RDS")
+
+```
+
+## Validation
+
+We now test the accuracy of the predictive model by validating it against the valid dataset we extracted out of the original data.
+
+```{r}
+
+validations <- predict(model, newdata=valid)
+confusionMatrix(validations, valid$classe)
+
+accuracy <- round(mean(validations == valid$classe)*100, 2)
+error <- round(100 - accuracy, 2)
+
+accuracy
+error
+
+```
+
+## Results
+
+We see that the confusion matrix above shows a high value of accuracy. From the results displayed above, we estimate the out of sample error to have a value of `r error` %.
